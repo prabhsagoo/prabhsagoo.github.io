@@ -7,32 +7,56 @@
   <style>
     body { font-family: sans-serif; background: #0f0f0f; color: #eee; margin: 0; display: flex; flex-direction: column; align-items: center; }
     .container { width: 95%; max-width: 1100px; padding: 20px; }
-    #list { height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #333; margin-top: 10px; border-radius: 8px; }
+    .controls { display: flex; gap: 10px; margin-bottom: 10px; justify-content: center; align-items: center; }
+    #list { height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; }
     .item { padding: 12px; cursor: pointer; border-bottom: 1px solid #222; }
     .item:hover { background: #252525; color: #00bfff; }
     video { width: 100%; background: #000; margin-top: 20px; border-radius: 8px; }
-    button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    input { padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; flex-grow: 1; max-width: 400px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div style="text-align:center; margin-bottom:20px;">
+    <h2 style="text-align: center;">IPTV Master Proxy</h2>
+    <div class="controls">
         <button onclick="fetchData('channels')">Live TV</button>
         <button onclick="fetchData('vod')">Movies</button>
+        <input type="text" id="search" placeholder="Search channels or movies..." oninput="filterList()">
     </div>
-    <div id="list">Click a button to load...</div>
+    <div id="list">Click a button to load content...</div>
     <video id="video" controls autoplay></video>
   </div>
 
   <script>
     let hls = null;
+    let currentItems = [];
+    let currentType = '';
     const video = document.getElementById('video');
 
     async function fetchData(type) {
+      document.getElementById('list').innerHTML = "Loading...";
       const res = await fetch(`/api/${type}`);
-      const data = await res.json();
+      currentItems = await res.json();
+      currentType = type === 'channels' ? 'live' : 'movie';
+      renderList(currentItems);
+    }
+
+    function renderList(items) {
       const container = document.getElementById('list');
-      container.innerHTML = data.map(i => `<div class="item" onclick="play('${type === 'channels' ? 'live' : 'movie'}', '${i.stream_id}')">${i.name || i.title}</div>`).join('');
+      container.innerHTML = items.map(i => 
+        `<div class="item" onclick="play('${currentType}', '${i.stream_id}')">
+          ${i.name || i.title}
+        </div>`
+      ).join('');
+    }
+
+    function filterList() {
+      const term = document.getElementById('search').value.toLowerCase();
+      const filtered = currentItems.filter(i => 
+        (i.name || i.title || "").toLowerCase().includes(term)
+      );
+      renderList(filtered);
     }
 
     function play(type, id) {
@@ -45,18 +69,22 @@
           hls = new Hls({
             enableWorker: true,
             lowLatencyMode: true,
-            backBufferLength: 60,
             xhrSetup: (xhr) => { xhr.withCredentials = false; }
           });
           hls.loadSource(url);
           hls.attachMedia(video);
           hls.on(Hls.Events.ERROR, (event, data) => {
-             if (data.details === 'bufferStalledError') { // Fix for the endless loading spinner
+             if (data.details === 'bufferStalledError') {
                video.currentTime = video.buffered.end(video.buffered.length - 1) - 0.5;
              }
           });
         } else { video.src = url; }
-      } else { video.src = url; }
+      } else { 
+          video.src = url; 
+          video.onerror = () => {
+            if (video.error.code === 4) alert("Codec Error: Browser can't play MKV/AVI. Use VLC.");
+          };
+      }
     }
   </script>
 </body>

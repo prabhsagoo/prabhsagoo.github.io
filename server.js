@@ -47,6 +47,7 @@ app.get('/stream/:type/:streamId', async (req, res) => {
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.send(playlist);
     } else {
+      // VOD Logic (Untouched)
       const headers = { ...vlcHeaders };
       if (req.headers.range) headers['Range'] = req.headers.range;
 
@@ -63,7 +64,7 @@ app.get('/stream/:type/:streamId', async (req, res) => {
   } catch (e) { res.status(500).end(); }
 });
 
-// PROXY: Specifically tuned for the 500 errors in your logs
+// PROXY for Live Segments
 app.get('/proxy', async (req, res) => {
   const targetUrl = decodeURIComponent(req.query.url);
   const controller = new AbortController();
@@ -75,7 +76,7 @@ app.get('/proxy', async (req, res) => {
       url: targetUrl,
       headers: vlcHeaders,
       responseType: 'stream',
-      timeout: 30000, // Increased to 30s to handle the lags shown in your image
+      timeout: 30000, 
       signal: controller.signal,
       validateStatus: false
     });
