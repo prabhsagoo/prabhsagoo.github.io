@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/server.js" },
+    { "source": "/stream/(.*)", "destination": "/server.js" },
+    { "source": "/proxy(.*)", "destination": "/server.js" },
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
+}

@@ -2,89 +2,100 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>IPTV Master Proxy</title>
+  <title>Prabh's IPTV Master</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
-    body { font-family: sans-serif; background: #0f0f0f; color: #eee; margin: 0; display: flex; flex-direction: column; align-items: center; }
-    .container { width: 95%; max-width: 1100px; padding: 20px; }
-    .controls { display: flex; gap: 10px; margin-bottom: 10px; justify-content: center; align-items: center; }
-    #list { height: 300px; overflow-y: auto; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; }
-    .item { padding: 12px; cursor: pointer; border-bottom: 1px solid #222; }
-    .item:hover { background: #252525; color: #00bfff; }
-    video { width: 100%; background: #000; margin-top: 20px; border-radius: 8px; }
-    button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-    input { padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; flex-grow: 1; max-width: 400px; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0b0b0b; color: #eee; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 900px; }
+    h1 { color: #00bfff; text-align: center; font-size: 1.8rem; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px; }
+    .controls { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
+    #list { height: 250px; overflow-y: auto; background: #161616; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px; }
+    .item { padding: 12px; cursor: pointer; border-bottom: 1px solid #222; transition: 0.2s; }
+    .item:hover { background: #222; color: #00bfff; }
+    .video-wrapper { position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #333; }
+    video { width: 100%; aspect-ratio: 16/9; display: block; }
+
+    #error-overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.95); display: none; flex-direction: column;
+        justify-content: center; align-items: center; text-align: center; padding: 20px; z-index: 100;
+    }
+    .error-card { background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #444; max-width: 480px; }
+    .vlc-steps { text-align: left; background: #252525; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 0.9rem; border-left: 4px solid #f39c12; line-height: 1.6; }
+    button { padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .vlc-btn { background: #f39c12; width: 100%; margin-top: 5px; font-size: 1rem; }
+    input { padding: 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; flex-grow: 1; outline: none; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2 style="text-align: center;">IPTV Master Proxy</h2>
+    <h1>Prabh's IPTV Master</h1>
     <div class="controls">
-        <button onclick="fetchData('channels')">Live TV</button>
-        <button onclick="fetchData('vod')">Movies</button>
-        <input type="text" id="search" placeholder="Search channels or movies..." oninput="filterList()">
+        <button onclick="fetchData('channels')">LIVE TV</button>
+        <button onclick="fetchData('vod')">MOVIES</button>
+        <input type="text" id="search" placeholder="Search by name..." oninput="filterList()">
     </div>
-    <div id="list">Click a button to load content...</div>
-    <video id="video" controls autoplay></video>
+    <div id="list">Select a category to start...</div>
+    <div class="video-wrapper">
+        <video id="video" controls autoplay></video>
+        <div id="error-overlay">
+            <div class="error-card">
+                <h3 style="color:#ff4444; margin:0;">FORMAT NOT SUPPORTED</h3>
+                <p style="font-size:0.95rem; color:#bbb;">Prabh's system detected a codec (MKV/DTS) that browsers can't handle. Use VLC for full quality!</p>
+                <div class="vlc-steps">
+                    <strong>Instructions:</strong><br>
+                    1. Copy the link below.<br>
+                    2. Open VLC & Press <code>Ctrl + N</code>.<br>
+                    3. Paste and hit <strong>Play</strong>.
+                </div>
+                <button class="vlc-btn" onclick="copyVlcLink()">COPY LINK FOR VLC</button>
+                <button style="background:transparent; color:#888; margin-top:10px;" onclick="hideError()">BACK TO LIST</button>
+            </div>
+        </div>
+    </div>
   </div>
-
   <script>
-    let hls = null;
-    let currentItems = [];
-    let currentType = '';
-    const video = document.getElementById('video');
+    let hls = null, allData = [], currentType = '', lastUrl = '';
+    const video = document.getElementById('video'), overlay = document.getElementById('error-overlay');
 
     async function fetchData(type) {
       document.getElementById('list').innerHTML = "Loading...";
+      hideError();
       const res = await fetch(`/api/${type}`);
-      currentItems = await res.json();
+      allData = await res.json();
       currentType = type === 'channels' ? 'live' : 'movie';
-      renderList(currentItems);
+      renderList(allData);
     }
 
     function renderList(items) {
-      const container = document.getElementById('list');
-      container.innerHTML = items.map(i => 
-        `<div class="item" onclick="play('${currentType}', '${i.stream_id}')">
-          ${i.name || i.title}
-        </div>`
-      ).join('');
+      document.getElementById('list').innerHTML = items.map(i => `<div class="item" onclick="play('${currentType}', '${i.stream_id}')">${i.name || i.title}</div>`).join('');
     }
 
     function filterList() {
       const term = document.getElementById('search').value.toLowerCase();
-      const filtered = currentItems.filter(i => 
-        (i.name || i.title || "").toLowerCase().includes(term)
-      );
-      renderList(filtered);
+      renderList(allData.filter(i => (i.name || i.title || "").toLowerCase().includes(term)));
     }
 
     function play(type, id) {
-      const url = `/stream/${type}/${id}`;
+      lastUrl = `${window.location.origin}/stream/${type}/${id}`;
+      hideError();
       if (hls) { hls.destroy(); hls = null; }
       video.pause(); video.removeAttribute('src'); video.load();
-
       if (type === 'live') {
         if (Hls.isSupported()) {
-          hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            xhrSetup: (xhr) => { xhr.withCredentials = false; }
-          });
-          hls.loadSource(url);
-          hls.attachMedia(video);
-          hls.on(Hls.Events.ERROR, (event, data) => {
-             if (data.details === 'bufferStalledError') {
-               video.currentTime = video.buffered.end(video.buffered.length - 1) - 0.5;
-             }
-          });
-        } else { video.src = url; }
+          hls = new Hls({ xhrSetup: (xhr) => { xhr.withCredentials = false; } });
+          hls.loadSource(lastUrl); hls.attachMedia(video);
+        } else { video.src = lastUrl; }
       } else { 
-          video.src = url; 
-          video.onerror = () => {
-            if (video.error.code === 4) alert("Codec Error: Browser can't play MKV/AVI. Use VLC.");
-          };
+          video.src = lastUrl; 
+          video.onerror = () => { if (video.error.code === 4) showError(); };
       }
+    }
+    function showError() { overlay.style.display = 'flex'; }
+    function hideError() { overlay.style.display = 'none'; }
+    function copyVlcLink() {
+        navigator.clipboard.writeText(lastUrl);
+        alert("Link copied! Paste into VLC.");
     }
   </script>
 </body>

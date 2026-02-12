@@ -38,6 +38,7 @@ app.get('/stream/:type/:streamId', async (req, res) => {
       let playlist = response.data;
       const baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf('/'));
 
+      // Rewrite manifest for the proxy
       playlist = playlist.split('\n').map(line => {
         if (line.startsWith('#') || line.trim() === '') return line;
         const fullUrl = line.startsWith('http') ? line : `${baseUrl}/${line}`;
@@ -87,5 +88,17 @@ app.get('/proxy', async (req, res) => {
   } catch (e) { res.status(500).end(); }
 });
 
-app.use(express.static('public'));
-app.listen(3000, () => console.log('✅ Server running on http://localhost:3000'));
+// Serve Static Files from the public folder
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- DUAL COMPATIBILITY: LOCAL & VERCEL ---
+// This allows the server to run locally, but exports it for Vercel's serverless environment
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`✅ Prabh's Local Server running: http://localhost:${PORT}`);
+  });
+}
+
+// IMPORTANT: Exporting for Vercel
+module.exports = app;
