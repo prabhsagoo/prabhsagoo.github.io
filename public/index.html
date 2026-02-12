@@ -7,96 +7,110 @@
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #0b0b0b; color: #eee; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
     .container { width: 100%; max-width: 900px; }
-    h1 { color: #00bfff; text-align: center; font-size: 1.8rem; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px; }
-    .controls { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
-    #list { height: 250px; overflow-y: auto; background: #161616; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px; }
+    h1 { color: #00bfff; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; width: 100%; }
+    #list { height: 320px; overflow-y: auto; background: #161616; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px; }
     .item { padding: 12px; cursor: pointer; border-bottom: 1px solid #222; transition: 0.2s; }
     .item:hover { background: #222; color: #00bfff; }
     .video-wrapper { position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #333; }
     video { width: 100%; aspect-ratio: 16/9; display: block; }
-
-    #error-overlay {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.95); display: none; flex-direction: column;
-        justify-content: center; align-items: center; text-align: center; padding: 20px; z-index: 100;
-    }
-    .error-card { background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #444; max-width: 480px; }
-    .vlc-steps { text-align: left; background: #252525; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 0.9rem; border-left: 4px solid #f39c12; line-height: 1.6; }
-    button { padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    .vlc-btn { background: #f39c12; width: 100%; margin-top: 5px; font-size: 1rem; }
-    input { padding: 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; flex-grow: 1; outline: none; }
+    #error-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; z-index: 100; }
+    .error-card { background: #1a1a1a; padding: 25px; border-radius: 12px; border: 1px solid #444; max-width: 450px; }
+    button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    select, input { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; outline: none; }
+    input { flex-grow: 1; }
+    .season-header { background: #222; padding: 10px; font-weight: bold; color: #00bfff; border-bottom: 1px solid #333; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Prabh's IPTV Master</h1>
     <div class="controls">
-        <button onclick="fetchData('channels')">LIVE TV</button>
-        <button onclick="fetchData('vod')">MOVIES</button>
-        <input type="text" id="search" placeholder="Search by name..." oninput="filterList()">
+        <button onclick="fetchCategories('channels')">LIVE</button>
+        <button onclick="fetchCategories('vod')">MOVIES</button>
+        <button onclick="fetchCategories('series')">SERIES</button>
+        <select id="cat-select" onchange="loadCategoryData()"><option value="">Select Category</option></select>
+        <input type="text" id="search" placeholder="Search in category..." oninput="filterList()">
     </div>
-    <div id="list">Select a category to start...</div>
+    <div id="list">Select a category to see Prabh's content.</div>
     <div class="video-wrapper">
         <video id="video" controls autoplay></video>
-        <div id="error-overlay">
-            <div class="error-card">
-                <h3 style="color:#ff4444; margin:0;">FORMAT NOT SUPPORTED</h3>
-                <p style="font-size:0.95rem; color:#bbb;">Prabh's system detected a codec (MKV/DTS) that browsers can't handle. Use VLC for full quality!</p>
-                <div class="vlc-steps">
-                    <strong>Instructions:</strong><br>
-                    1. Copy the link below.<br>
-                    2. Open VLC & Press <code>Ctrl + N</code>.<br>
-                    3. Paste and hit <strong>Play</strong>.
-                </div>
-                <button class="vlc-btn" onclick="copyVlcLink()">COPY LINK FOR VLC</button>
-                <button style="background:transparent; color:#888; margin-top:10px;" onclick="hideError()">BACK TO LIST</button>
-            </div>
-        </div>
+        <div id="error-overlay"><div class="error-card">
+            <h3 style="color:#ff4444; margin:0;">FORMAT NOT SUPPORTED</h3>
+            <p>Browsers can't play MKV/DTS. Prabh has the VLC link ready!</p>
+            <button onclick="copyVlcLink()" style="background:#f39c12; width:100%; margin:10px 0;">COPY LINK FOR VLC</button>
+            <button style="background:transparent; color:#888;" onclick="hideError()">BACK</button>
+        </div></div>
     </div>
   </div>
   <script>
     let hls = null, allData = [], currentType = '', lastUrl = '';
-    const video = document.getElementById('video'), overlay = document.getElementById('error-overlay');
+    const video = document.getElementById('video'), overlay = document.getElementById('error-overlay'), listDiv = document.getElementById('list');
 
-    async function fetchData(type) {
-      document.getElementById('list').innerHTML = "Loading...";
-      hideError();
-      const res = await fetch(`/api/${type}`);
-      allData = await res.json();
-      currentType = type === 'channels' ? 'live' : 'movie';
-      renderList(allData);
+    async function fetchCategories(type) {
+        listDiv.innerHTML = "Loading Categories...";
+        currentType = type;
+        const res = await fetch(`/api/categories/${type}`);
+        const cats = await res.json();
+        const select = document.getElementById('cat-select');
+        select.innerHTML = '<option value="">-- Choose Genre --</option>' + 
+            cats.map(c => `<option value="${c.category_id}">${c.category_name}</option>`).join('');
+        listDiv.innerHTML = "Choose a category from the dropdown to see Prabh's full list.";
+    }
+
+    async function loadCategoryData() {
+        const catId = document.getElementById('cat-select').value;
+        if (!catId) return;
+        listDiv.innerHTML = "Fetching category content...";
+        const res = await fetch(`/api/list/${currentType}/${catId}`);
+        allData = await res.json();
+        renderList(allData);
     }
 
     function renderList(items) {
-      document.getElementById('list').innerHTML = items.map(i => `<div class="item" onclick="play('${currentType}', '${i.stream_id}')">${i.name || i.title}</div>`).join('');
+        listDiv.innerHTML = items.map(i => {
+            const id = i.series_id || i.stream_id;
+            const name = i.name || i.title || "No Title";
+            const action = currentType === 'series' ? `fetchEpisodes('${id}')` : `play('${currentType === 'channels' ? 'live' : 'movie'}', '${id}')`;
+            return `<div class="item" onclick="${action}">${name}</div>`;
+        }).join('') || "<div class='item'>Empty Category.</div>";
+        listDiv.scrollTop = 0;
     }
 
     function filterList() {
-      const term = document.getElementById('search').value.toLowerCase();
-      renderList(allData.filter(i => (i.name || i.title || "").toLowerCase().includes(term)));
+        const term = document.getElementById('search').value.toLowerCase();
+        renderList(allData.filter(i => (i.name || i.title || "").toLowerCase().includes(term)));
+    }
+
+    async function fetchEpisodes(seriesId) {
+        listDiv.innerHTML = "Fetching Episodes...";
+        const res = await fetch(`/api/series-info/${seriesId}`);
+        const data = await res.json();
+        if (!data || !data.episodes || typeof data.episodes !== 'object') {
+            listDiv.innerHTML = `<div class="item" style="color:#ff4444" onclick="loadCategoryData()">⬅ Error. Back to Category.</div>`;
+            return;
+        }
+        let html = `<div class="item" style="color:#888" onclick="loadCategoryData()">⬅ Back to Category</div>`;
+        Object.keys(data.episodes).forEach(s => {
+            html += `<div class="season-header">Season ${s}</div>`;
+            data.episodes[s].forEach(ep => { html += `<div class="item" onclick="play('series', '${ep.id}')">E${ep.episode_num}: ${ep.title}</div>`; });
+        });
+        listDiv.innerHTML = html;
     }
 
     function play(type, id) {
-      lastUrl = `${window.location.origin}/stream/${type}/${id}`;
-      hideError();
-      if (hls) { hls.destroy(); hls = null; }
-      video.pause(); video.removeAttribute('src'); video.load();
-      if (type === 'live') {
-        if (Hls.isSupported()) {
-          hls = new Hls({ xhrSetup: (xhr) => { xhr.withCredentials = false; } });
-          hls.loadSource(lastUrl); hls.attachMedia(video);
-        } else { video.src = lastUrl; }
-      } else { 
-          video.src = lastUrl; 
-          video.onerror = () => { if (video.error.code === 4) showError(); };
-      }
+        lastUrl = `${window.location.origin}/stream/${type}/${id}`;
+        hideError();
+        if (hls) { hls.destroy(); hls = null; }
+        video.pause(); video.removeAttribute('src'); video.load();
+        if (type === 'live') {
+            if (Hls.isSupported()) { hls = new Hls({ xhrSetup: (xhr) => { xhr.withCredentials = false; } }); hls.loadSource(lastUrl); hls.attachMedia(video); }
+            else { video.src = lastUrl; }
+        } else { video.src = lastUrl; video.onerror = () => { if (video.error.code === 4) showError(); }; }
     }
     function showError() { overlay.style.display = 'flex'; }
     function hideError() { overlay.style.display = 'none'; }
-    function copyVlcLink() {
-        navigator.clipboard.writeText(lastUrl);
-        alert("Link copied! Paste into VLC.");
-    }
+    function copyVlcLink() { navigator.clipboard.writeText(lastUrl); alert("Copied to clipboard!"); }
   </script>
 </body>
 </html>
