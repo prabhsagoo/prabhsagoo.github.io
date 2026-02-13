@@ -52,12 +52,12 @@ app.get('/stream/:type/:streamId', async (req, res) => {
   try {
     const headers = { ...vlcHeaders };
     if (req.headers.range) headers['Range'] = req.headers.range;
-    const streamResponse = await axios({ method: 'get', url: streamUrl, headers: headers, responseType: 'stream', timeout: 90000 });
-    res.status(streamResponse.status);
-    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => { if (streamResponse.headers[h]) res.setHeader(h, streamResponse.headers[h]); });
-    streamResponse.data.pipe(res);
+    const response = await axios({ method: 'get', url: streamUrl, headers: headers, responseType: 'stream', timeout: 60000 });
+    res.status(response.status);
+    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(h => { if (response.headers[h]) res.setHeader(h, response.headers[h]); });
+    response.data.pipe(res);
   } catch (e) { res.status(500).end(); }
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.listen(3000, () => console.log(`✅ Server Active: http://localhost:3000`));
+app.listen(3000, () => console.log(`🚀 Master Server Ready`));
