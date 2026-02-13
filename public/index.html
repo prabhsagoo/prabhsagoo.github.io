@@ -5,112 +5,168 @@
   <title>Prabh's IPTV Master</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #0b0b0b; color: #eee; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .container { width: 100%; max-width: 900px; }
-    h1 { color: #00bfff; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
-    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; width: 100%; }
-    #list { height: 320px; overflow-y: auto; background: #161616; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px; }
-    .item { padding: 12px; cursor: pointer; border-bottom: 1px solid #222; transition: 0.2s; }
-    .item:hover { background: #222; color: #00bfff; }
-    .video-wrapper { position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid #333; }
+    :root { --accent: #00bfff; --bg: #0b0b0b; --card: #1a1a1a; --text: #eee; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 1200px; }
+    h1 { color: var(--accent); text-align: center; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 25px; }
+    
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; width: 100%; justify-content: center; }
+    button { padding: 12px 20px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-active { background: var(--accent) !important; box-shadow: 0 0 10px rgba(0, 191, 255, 0.4); }
+    select, .search-wrapper input { padding: 12px; border-radius: 6px; border: 1px solid #333; background: var(--card); color: white; outline: none; }
+    .search-wrapper { display: flex; align-items: center; background: var(--card); border-radius: 6px; border: 1px solid #333; flex-grow: 1; max-width: 400px; }
+    .search-wrapper input { border: none; width: 100%; }
+
+    #list { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); grid-auto-rows: min-content; gap: 20px; height: 550px; overflow-y: auto; padding: 20px; background: #000; border-radius: 12px; border: 1px solid #222; margin-bottom: 20px; }
+    
+    /* --- FIX: Broken Image Fallback --- */
+    .item { background: var(--card); border-radius: 10px; overflow: hidden; border: 1px solid #333; cursor: pointer; position: relative; min-height: 250px; transition: 0.2s; display: flex; flex-direction: column; }
+    .item:hover { transform: scale(1.03); border-color: var(--accent); }
+    .poster-container { width: 100%; aspect-ratio: 2/3; background: linear-gradient(45deg, #111, #222); display: flex; align-items: center; justify-content: center; position: relative; }
+    .item img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; }
+    .fallback-text { color: #555; font-size: 0.7rem; font-weight: bold; text-align: center; z-index: 0; }
+
+    .item-title { padding: 10px; font-size: 0.8rem; font-weight: bold; text-align: center; height: 40px; overflow: hidden; background: var(--card); z-index: 2; }
+    .recent-tag { position: absolute; top: 8px; right: 8px; background: #e50914; color: white; font-size: 0.55rem; padding: 4px 8px; border-radius: 4px; font-weight: bold; z-index: 10; }
+
+    /* --- ADDED: Now Playing Bar --- */
+    .now-playing { width: 100%; background: #1a1a1a; padding: 12px 20px; border-radius: 8px 8px 0 0; border: 1px solid #333; border-bottom: none; display: none; align-items: center; gap: 12px; }
+    .playing-dot { width: 10px; height: 10px; background: #28a745; border-radius: 50%; box-shadow: 0 0 8px #28a745; animation: blink 1.5s infinite; }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    #playing-title { font-weight: bold; color: var(--accent); font-size: 0.95rem; }
+
+    .video-wrapper { width: 100%; background: #000; border-radius: 0 0 12px 12px; border: 1px solid #333; overflow: hidden; position: relative; }
     video { width: 100%; aspect-ratio: 16/9; display: block; }
-    #error-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; z-index: 100; }
-    .error-card { background: #1a1a1a; padding: 25px; border-radius: 12px; border: 1px solid #444; max-width: 450px; }
-    button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    select, input { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; outline: none; }
-    input { flex-grow: 1; }
-    .season-header { background: #222; padding: 10px; font-weight: bold; color: #00bfff; border-bottom: 1px solid #333; }
+    #error-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Prabh's IPTV Master</h1>
     <div class="controls">
-        <button onclick="fetchCategories('channels')">LIVE</button>
-        <button onclick="fetchCategories('vod')">MOVIES</button>
-        <button onclick="fetchCategories('series')">SERIES</button>
-        <select id="cat-select" onchange="loadCategoryData()"><option value="">Select Category</option></select>
-        <input type="text" id="search" placeholder="Search in category..." oninput="filterList()">
+        <button id="btn-channels" onclick="fetchCategories('channels')">LIVE</button>
+        <button id="btn-vod" onclick="fetchCategories('vod')">MOVIES</button>
+        <button id="btn-series" onclick="fetchCategories('series')">SERIES</button>
+        <select id="cat-select" onchange="loadCategoryData()"><option value="">-- Select Category --</option></select>
+        <div class="search-wrapper"><input type="text" id="search" placeholder="Search..." oninput="handleSearch()"></div>
     </div>
-    <div id="list">Select a category to see Prabh's content.</div>
+    <div id="list">Ready. Choose a library to start.</div>
+    
+    <div class="now-playing" id="playing-bar">
+      <div class="playing-dot"></div>
+      <span style="font-size: 0.8rem; color: #888;">NOW STREAMING:</span>
+      <span id="playing-title"></span>
+    </div>
+    
     <div class="video-wrapper">
         <video id="video" controls autoplay></video>
-        <div id="error-overlay"><div class="error-card">
-            <h3 style="color:#ff4444; margin:0;">FORMAT NOT SUPPORTED</h3>
-            <p>Browsers can't play MKV/DTS. Prabh has the VLC link ready!</p>
-            <button onclick="copyVlcLink()" style="background:#f39c12; width:100%; margin:10px 0;">COPY LINK FOR VLC</button>
-            <button style="background:transparent; color:#888;" onclick="hideError()">BACK</button>
-        </div></div>
+        <div id="error-overlay">
+            <button onclick="copyVlcLink()" style="background:#f39c12; padding: 15px 40px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; color: white;">COPY LINK FOR VLC</button>
+            <button style="background:transparent; color:#888; margin-top:20px; border:none; cursor:pointer;" onclick="hideError()">BACK</button>
+        </div>
     </div>
   </div>
+
   <script>
     let hls = null, allData = [], currentType = '', lastUrl = '';
-    const video = document.getElementById('video'), overlay = document.getElementById('error-overlay'), listDiv = document.getElementById('list');
+    const listDiv = document.getElementById('list'), selectMenu = document.getElementById('cat-select'), searchInput = document.getElementById('search'), video = document.getElementById('video'), overlay = document.getElementById('error-overlay'), playingBar = document.getElementById('playing-bar'), playingTitle = document.getElementById('playing-title');
+
+    function handleImageError(img) {
+      img.style.display = 'none'; // Hide the broken img tag so the fallback-text shows
+    }
 
     async function fetchCategories(type) {
-        listDiv.innerHTML = "Loading Categories...";
         currentType = type;
-        const res = await fetch(`/api/categories/${type}`);
-        const cats = await res.json();
-        const select = document.getElementById('cat-select');
-        select.innerHTML = '<option value="">-- Choose Genre --</option>' + 
-            cats.map(c => `<option value="${c.category_id}">${c.category_name}</option>`).join('');
-        listDiv.innerHTML = "Choose a category from the dropdown to see Prabh's full list.";
+        ['channels','vod','series'].forEach(t => document.getElementById(`btn-${t}`).classList.toggle('btn-active', t === type));
+        selectMenu.innerHTML = '<option value="">Loading...</option>';
+        try {
+            const res = await fetch(`/api/categories/${type}`);
+            const cats = await res.json();
+            let options = `<option value="" disabled selected>-- Select Genre --</option>`;
+            options += `<option value="all">-- ALL CONTENT --</option>`;
+            options += cats.map(c => `<option value="${c.category_id}">${c.category_name}</option>`).join('');
+            selectMenu.innerHTML = options;
+            selectMenu.value = "";
+        } catch (e) { listDiv.innerHTML = "Error loading categories."; }
     }
 
     async function loadCategoryData() {
-        const catId = document.getElementById('cat-select').value;
+        const catId = selectMenu.value;
         if (!catId) return;
-        listDiv.innerHTML = "Fetching category content...";
-        const res = await fetch(`/api/list/${currentType}/${catId}`);
-        allData = await res.json();
-        renderList(allData);
+        listDiv.innerHTML = "Syncing metadata...";
+        try {
+            const res = await fetch(`/api/list/${currentType}/${catId}`);
+            allData = await res.json();
+            renderList(allData);
+        } catch (e) { listDiv.innerHTML = "Server connection issue."; }
     }
 
     function renderList(items) {
+        if (!Array.isArray(items)) return;
+        const now = Math.floor(Date.now() / 1000);
         listDiv.innerHTML = items.map(i => {
             const id = i.series_id || i.stream_id;
-            const name = i.name || i.title || "No Title";
-            const action = currentType === 'series' ? `fetchEpisodes('${id}')` : `play('${currentType === 'channels' ? 'live' : 'movie'}', '${id}')`;
-            return `<div class="item" onclick="${action}">${name}</div>`;
-        }).join('') || "<div class='item'>Empty Category.</div>";
+            const name = i.name || i.title || "Untitled";
+            const icon = i.stream_icon || i.cover || '';
+            const isRecent = (now - parseInt(i.added)) < (14 * 24 * 60 * 60);
+            const tag = isRecent ? `<div class="recent-tag">${currentType === 'series' ? 'New Episode' : 'New'}</div>` : '';
+            const action = currentType === 'series' ? `fetchEpisodes('${id}', '${name}')` : `play('${currentType === 'channels' ? 'live' : 'movie'}', '${id}', '${i.container_extension||'mp4'}', '${name}')`;
+            
+            return `
+              <div class="item" onclick="${action}">
+                ${tag}
+                <div class="poster-container">
+                  <span class="fallback-text">IMAGE NOT<br>FOUND</span>
+                  <img src="${icon}" onerror="handleImageError(this)" loading="lazy">
+                </div>
+                <div class="item-title">${name}</div>
+              </div>`;
+        }).join('') || "No items found.";
         listDiv.scrollTop = 0;
     }
 
-    function filterList() {
-        const term = document.getElementById('search').value.toLowerCase();
-        renderList(allData.filter(i => (i.name || i.title || "").toLowerCase().includes(term)));
+    function handleSearch() { renderList(allData.filter(i => (i.name || i.title || "").toLowerCase().includes(searchInput.value.toLowerCase()))); }
+
+    async function fetchEpisodes(seriesId, seriesName) {
+        listDiv.innerHTML = "Loading seasons...";
+        try {
+            const res = await fetch(`/api/series-info/${seriesId}`);
+            const data = await res.json();
+            let html = `<div onclick="goBackAndFilter()" style="grid-column: 1/-1; background:#333; padding:15px; border-radius:8px; text-align:center; cursor:pointer;">⬅ Back to ${seriesName}</div>`;
+            Object.keys(data.episodes || {}).forEach(s => {
+                html += `<div style="grid-column: 1/-1; background:#222; padding:10px; font-weight:bold; color:var(--accent);">Season ${s}</div>`;
+                data.episodes[s].forEach(ep => { 
+                    html += `
+                      <div class="item" style="min-height: 100px;" onclick="play('series', '${ep.id}', '${ep.container_extension||'mp4'}', '${seriesName} - E${ep.episode_num}')">
+                        <div class="item-title">E${ep.episode_num}: ${ep.title}</div>
+                      </div>`;
+                });
+            });
+            listDiv.innerHTML = html;
+        } catch (e) { listDiv.innerHTML = "Error."; }
     }
 
-    async function fetchEpisodes(seriesId) {
-        listDiv.innerHTML = "Fetching Episodes...";
-        const res = await fetch(`/api/series-info/${seriesId}`);
-        const data = await res.json();
-        if (!data || !data.episodes || typeof data.episodes !== 'object') {
-            listDiv.innerHTML = `<div class="item" style="color:#ff4444" onclick="loadCategoryData()">⬅ Error. Back to Category.</div>`;
-            return;
-        }
-        let html = `<div class="item" style="color:#888" onclick="loadCategoryData()">⬅ Back to Category</div>`;
-        Object.keys(data.episodes).forEach(s => {
-            html += `<div class="season-header">Season ${s}</div>`;
-            data.episodes[s].forEach(ep => { html += `<div class="item" onclick="play('series', '${ep.id}')">E${ep.episode_num}: ${ep.title}</div>`; });
-        });
-        listDiv.innerHTML = html;
-    }
+    function goBackAndFilter() { renderList(allData); if (searchInput.value) handleSearch(); }
 
-    function play(type, id) {
-        lastUrl = `${window.location.origin}/stream/${type}/${id}`;
+    function play(type, id, ext, title) {
+        const realExt = type === 'live' ? 'm3u8' : (ext || 'mp4');
+        lastUrl = `${window.location.origin}/stream/${type}/${id}.${realExt}`;
+        
+        // --- ADDED: Update Now Playing Title ---
+        playingBar.style.display = 'flex';
+        playingTitle.innerText = title.toUpperCase();
+        
         hideError();
         if (hls) { hls.destroy(); hls = null; }
         video.pause(); video.removeAttribute('src'); video.load();
         if (type === 'live') {
             if (Hls.isSupported()) { hls = new Hls({ xhrSetup: (xhr) => { xhr.withCredentials = false; } }); hls.loadSource(lastUrl); hls.attachMedia(video); }
             else { video.src = lastUrl; }
-        } else { video.src = lastUrl; video.onerror = () => { if (video.error.code === 4) showError(); }; }
+        } else { video.src = lastUrl; video.onerror = () => { showError(); }; }
     }
     function showError() { overlay.style.display = 'flex'; }
     function hideError() { overlay.style.display = 'none'; }
-    function copyVlcLink() { navigator.clipboard.writeText(lastUrl); alert("Copied to clipboard!"); }
+    function copyVlcLink() { navigator.clipboard.writeText(lastUrl); alert("Copied!"); }
   </script>
 </body>
 </html>
