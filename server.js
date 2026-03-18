@@ -8,8 +8,8 @@ const app = express();
 app.use(cors());
 
 const XTREAM_URL = 'http://starshare.one';
-const USERNAME = '6719747';
-const PASSWORD = '9747671';
+const USERNAME = 'PeH5kPWFfG';
+const PASSWORD = 'infamous7funny';
 
 // VLC Headers: Strictly required to bypass 401 blocks
 const vlcHeaders = { 
